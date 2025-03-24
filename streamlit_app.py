@@ -1,56 +1,69 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-import joblib
 import plotly.express as px
+from joblib import load
 
-# Load Data
+# ---------- Streamlit UI ----------
+st.set_page_config(page_title="Disaster Rescue App", layout="wide")
+
+st.title("🚨 Disaster Rescue App 🆘")
+st.markdown("This app helps visualize disaster response data and classify messages. ⚠️")
+
+# ---------- Sidebar ----------
+st.sidebar.header("Navigation")
+page = st.sidebar.radio("Go to:", ["📊 Dashboard", "💬 Classify Message"])
+
+# ---------- Connect to Database ----------
 @st.cache_data
 def load_data():
     conn = sqlite3.connect('DisasterResponse.db')
-    df = pd.read_sql("SELECT * FROM messages", conn)
+    df = pd.read_sql("SELECT * FROM disaster_messages", conn)
     conn.close()
     return df
 
-# Load Trained Model
-@st.cache_resource
-def load_model():
-    model = joblib.load('classifier.pkl')  # Update if model filename is different
-    return model
-
-# App Title
-st.title("🚨 Disaster Response App 🌍")
-st.write("Classify disaster messages and provide the right category for rescue efforts! 🚑")
-
-# Sidebar Filters / Upload
-st.sidebar.header("📥 Input Message")
-user_input = st.sidebar.text_area("Enter a disaster-related message:", "")
-
-# Load Data and Model
 df = load_data()
-model = load_model()
 
-# Show Data Sample
-with st.expander("📊 View Sample Data"):
-    st.dataframe(df.head())
+# ---------- Dashboard ----------
+if page == "📊 Dashboard":
+    st.subheader("📂 Dataset Overview")
+    st.write(df.head())
 
-# Predict Button
-if st.sidebar.button("Classify Message"):
-    if user_input != "":
-        classification_labels = model.predict([user_input])[0]
-        classification_results = dict(zip(df.columns[4:], classification_labels))  # Assuming label cols start from 5th col
-        st.subheader("📌 Classification Results:")
-        for category, value in classification_results.items():
-            st.write(f"**{category}:** {'✅' if value else '❌'}")
-    else:
-        st.warning("Please enter a message!")
+    st.subheader("📈 Message Genre Distribution")
+    genre_count = df.groupby('genre').count()['message']
+    fig = px.bar(genre_count, x=genre_count.index, y=genre_count.values,
+                 labels={'x': 'Genre', 'y': 'Message Count'}, color=genre_count.index)
+    st.plotly_chart(fig, use_container_width=True)
 
-# Optional: Data Visualization
-with st.expander("📈 View Message Categories Distribution"):
-    category_counts = df.iloc[:, 4:].sum().sort_values(ascending=False)
-    fig = px.bar(category_counts, orientation='h', title="Category Distribution in Dataset")
-    st.plotly_chart(fig)
+    st.subheader("💡 Most Frequent Categories")
+    category_cols = df.columns[4:]  # Assuming first 4 cols are id, message, original, genre
+    category_counts = df[category_cols].sum().sort_values(ascending=False)[:10]
+    fig2 = px.bar(category_counts, x=category_counts.index, y=category_counts.values,
+                  labels={'x': 'Category', 'y': 'Count'}, color=category_counts.index)
+    st.plotly_chart(fig2, use_container_width=True)
 
-# Footer
-st.markdown("---")
-st.markdown("Made with ❤️ using Streamlit")
+# ---------- Classify Message ----------
+elif page == "💬 Classify Message":
+    st.subheader("🚀 Classify an Incoming Message")
+
+    user_message = st.text_area("Paste a disaster-related message:")
+    model = load("classifier_model.joblib")  # Make sure you have a trained model
+
+    if st.button("Classify"):
+        if user_message.strip() == "":
+            st.warning("Please enter a message to classify!")
+        else:
+            # Fake preprocessing for demo
+            # Replace with your actual text preprocessing
+            X_input = pd.Series([user_message])
+            preds = model.predict([user_message])[0]  # Assuming multilabel output
+
+            result = dict(zip(category_cols, preds))
+            st.success("✅ Classification Result:")
+            for cat, val in result.items():
+                if val == 1:
+                    st.markdown(f"- **{cat}**")
+
+# ---------- Footer ----------
+st.sidebar.markdown("---")
+st.sidebar.markdown("Developed by Mohan Kumar 🚀")
