@@ -12,6 +12,8 @@ from nltk.stem import WordNetLemmatizer
 import nltk
 from sqlalchemy import create_engine
 import warnings
+from utils import tokenize
+
 
 warnings.filterwarnings("ignore", message="The parameter 'token_pattern' will not be used since 'tokenizer' is not None")
 
