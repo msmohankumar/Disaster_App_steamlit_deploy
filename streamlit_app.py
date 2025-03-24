@@ -1,57 +1,69 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import sqlite3
+import os
 import joblib
-import plotly.express as px
-from utils import simple_tokenize
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+import nltk
+from utils import tokenize
 
-# Define absolute paths (based on deployment structure)
-BASE_PATH = "/mount/src/disaster_app_steamlit_deploy/"
-MODEL_PATH = BASE_PATH + "model.pkl"
-DATA_PATH = BASE_PATH + "DisasterResponse.db"
 
-# Load pre-trained model
-model = joblib.load(MODEL_PATH)
+nltk.download('punkt')
+nltk.download('wordnet')
 
-# Load data for visuals
-df = pd.read_sql_table('DisasterResponse', f'sqlite:///{DATA_PATH}')
+# Streamlit App Config
+st.set_page_config(page_title="Disaster Rescue App", page_icon="🚨")
+st.title("🚨 Disaster Rescue Message Classifier")
 
-# Streamlit UI
-st.title("🌍 Disaster Response Message Classifier")
-st.markdown("Classify disaster-related messages into multiple response categories!")
+# Paths
+DB_PATH = 'DisasterResponse.db'
+MODEL_PATH = 'classifier.pkl'
 
-# Sidebar - Data exploration
-st.sidebar.title("📊 Data Overview")
-if st.sidebar.checkbox("Show dataset"):
-    st.dataframe(df.head())
+# Load model if exists
+if not os.path.exists(MODEL_PATH):
+    st.error("Trained model not found! Please run train_classifier.py to generate classifier.pkl.")
+else:
+    model = joblib.load(MODEL_PATH)
 
-# Visualization 1 - Distribution of message genres
-genre_counts = df.groupby('genre').count()['message']
-genre_names = list(genre_counts.index)
+    # Tokenizer function (same as in train_classifier)
+    def tokenize(text):
+        tokens = word_tokenize(text)
+        lemmatizer = WordNetLemmatizer()
+        tokens = [lemmatizer.lemmatize(token).lower().strip() for token in tokens]
+        return tokens
 
-st.sidebar.subheader("Message Genre Distribution")
-fig_genre = px.bar(
-    x=genre_names,
-    y=genre_counts.values,
-    labels={'x': 'Genre', 'y': 'Number of Messages'},
-    title="Messages per Genre"
-)
-st.sidebar.plotly_chart(fig_genre, use_container_width=True)
-
-# User Input
-txt = st.text_area("✍️ Enter a disaster-related message:", "")
-
-if st.button("🚀 Classify Message"):
-    if txt.strip():
-        prediction = model.predict([txt])[0]
-        prediction_labels = df.columns[4:]
-        prediction_results = dict(zip(prediction_labels, prediction))
-
-        st.subheader("🧩 Classification Results:")
-        for category, value in prediction_results.items():
-            st.write(f"**{category}**: {'✅ Relevant' if value == 1 else '❌ Not Relevant'}")
+    # Load DB if exists
+    if not os.path.exists(DB_PATH):
+        st.error("Database not found! Please run process_data.py to generate DisasterResponse.db.")
     else:
-        st.warning("⚠️ Please enter a message to classify.")
+        conn = sqlite3.connect(DB_PATH)
+        df = pd.read_sql("SELECT * FROM disaster_messages", conn)
+        conn.close()
 
-st.markdown("---")
-st.markdown("Made with ❤️ using Streamlit and Plotly.")
+        # Sidebar Info
+        st.sidebar.header("About")
+        st.sidebar.info("This app helps classify disaster-related messages into multiple emergency-related categories!")
+
+        # Input Message
+        txt = st.text_area("Paste a Disaster-related Message here:")
+
+        if st.button("Classify 🚀"):
+            if txt:
+                # Actual model prediction
+                prediction = model.predict([txt])[0]
+                categories = df.columns[4:]  # Skip id, message, original, genre
+                
+                st.success("✅ Classification complete!")
+                st.write(f"**Message:** {txt}")
+                st.write("**Predicted Categories:**")
+                for cat, label in zip(categories, prediction):
+                    if label == 1:
+                        st.markdown(f"- ✅ **{cat}**")
+            else:
+                st.warning("Please input a message to classify.")
+
+        # Show the database
+        toggle = st.checkbox("Show Dataset 📊")
+        if toggle:
+            st.dataframe(df.head(20))
