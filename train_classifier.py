@@ -12,7 +12,13 @@ from nltk.stem import WordNetLemmatizer
 import nltk
 from sqlalchemy import create_engine
 import warnings
-from utils import tokenize
+from utils import simple_tokenize
+
+pipeline = Pipeline([
+    ('vect', CountVectorizer(tokenizer=simple_tokenize)),
+    ('tfidf', TfidfTransformer()),
+    ('clf', MultiOutputClassifier(RandomForestClassifier(n_estimators=50, max_depth=5, random_state=42)))
+])
 
 
 warnings.filterwarnings("ignore", message="The parameter 'token_pattern' will not be used since 'tokenizer' is not None")
