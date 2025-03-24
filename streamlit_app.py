@@ -6,7 +6,8 @@ import joblib
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 import nltk
-from utils import tokenize
+from utils import simple_tokenize
+
 
 
 nltk.download('punkt')
