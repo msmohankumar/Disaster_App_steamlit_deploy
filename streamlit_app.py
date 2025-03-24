@@ -1,70 +1,51 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
-import os
+import numpy as np
 import joblib
-from nltk.tokenize import word_tokenize
-from nltk.stem import WordNetLemmatizer
-import nltk
-from utils import simple_tokenize
+import plotly.express as px
+from utils import tokenize
 
+# Load pre-trained model
+MODEL_PATH = "model.pkl"
+model = joblib.load(MODEL_PATH)
 
+# Load data for visuals
+DATA_PATH = "DisasterResponse.db"
+df = pd.read_sql_table('DisasterResponse', f'sqlite:///{DATA_PATH}')
 
-nltk.download('punkt')
-nltk.download('wordnet')
+# Streamlit UI
+st.title("Disaster Response Message Classifier")
+st.markdown("Enter a message to classify it into relevant disaster response categories.")
 
-# Streamlit App Config
-st.set_page_config(page_title="Disaster Rescue App", page_icon="🚨")
-st.title("🚨 Disaster Rescue Message Classifier")
+# Sidebar for data exploration
+st.sidebar.title("Data Overview")
+if st.sidebar.checkbox("Show dataset"):
+    st.write(df.head())
 
-# Paths
-DB_PATH = 'DisasterResponse.db'
-MODEL_PATH = 'classifier.pkl'
+# Visualization 1 - Distribution of message genres
+genre_counts = df.groupby('genre').count()['message']
+genre_names = list(genre_counts.index)
 
-# Load model if exists
-if not os.path.exists(MODEL_PATH):
-    st.error("Trained model not found! Please run train_classifier.py to generate classifier.pkl.")
-else:
-    model = joblib.load(MODEL_PATH)
+st.sidebar.subheader("Message Genre Distribution")
+fig_genre = px.bar(x=genre_names, y=genre_counts.values, labels={'x': 'Genre', 'y': 'Count'})
+st.sidebar.plotly_chart(fig_genre)
 
-    # Tokenizer function (same as in train_classifier)
-    def tokenize(text):
-        tokens = word_tokenize(text)
-        lemmatizer = WordNetLemmatizer()
-        tokens = [lemmatizer.lemmatize(token).lower().strip() for token in tokens]
-        return tokens
+# Text input box for user message
+txt = st.text_area("Enter a disaster-related message:", "")
 
-    # Load DB if exists
-    if not os.path.exists(DB_PATH):
-        st.error("Database not found! Please run process_data.py to generate DisasterResponse.db.")
+if st.button("Classify Message"):
+    if txt:
+        # Predict using the model
+        prediction = model.predict([txt])[0]
+        prediction_labels = df.columns[4:]
+        prediction_results = dict(zip(prediction_labels, prediction))
+
+        st.subheader("Classification Results:")
+        for category, value in prediction_results.items():
+            st.write(f"{category}: {'✅' if value == 1 else '❌'}")
     else:
-        conn = sqlite3.connect(DB_PATH)
-        df = pd.read_sql("SELECT * FROM disaster_messages", conn)
-        conn.close()
+        st.warning("Please enter a message to classify.")
 
-        # Sidebar Info
-        st.sidebar.header("About")
-        st.sidebar.info("This app helps classify disaster-related messages into multiple emergency-related categories!")
-
-        # Input Message
-        txt = st.text_area("Paste a Disaster-related Message here:")
-
-        if st.button("Classify 🚀"):
-            if txt:
-                # Actual model prediction
-                prediction = model.predict([txt])[0]
-                categories = df.columns[4:]  # Skip id, message, original, genre
-                
-                st.success("✅ Classification complete!")
-                st.write(f"**Message:** {txt}")
-                st.write("**Predicted Categories:**")
-                for cat, label in zip(categories, prediction):
-                    if label == 1:
-                        st.markdown(f"- ✅ **{cat}**")
-            else:
-                st.warning("Please input a message to classify.")
-
-        # Show the database
-        toggle = st.checkbox("Show Dataset 📊")
-        if toggle:
-            st.dataframe(df.head(20))
+# Optional: Add footer
+st.markdown("---")
+st.markdown("Made with ❤️ using Streamlit")
