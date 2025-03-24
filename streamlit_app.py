@@ -2,36 +2,68 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import os
+import joblib
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+import nltk
+from utils import tokenize
 
+
+nltk.download('punkt')
+nltk.download('wordnet')
+
+# Streamlit App Config
 st.set_page_config(page_title="Disaster Rescue App", page_icon="🚨")
 st.title("🚨 Disaster Rescue Message Classifier")
 
-# Check if DB exists
-if not os.path.exists('DisasterResponse.db'):
-    st.error("Database not found! Please run process_data.py first to generate the DisasterResponse.db file.")
+# Paths
+DB_PATH = 'DisasterResponse.db'
+MODEL_PATH = 'classifier.pkl'
+
+# Load model if exists
+if not os.path.exists(MODEL_PATH):
+    st.error("Trained model not found! Please run train_classifier.py to generate classifier.pkl.")
 else:
-    # Connect to DB
-    conn = sqlite3.connect('DisasterResponse.db')
-    df = pd.read_sql("SELECT * FROM disaster_messages", conn)
-    conn.close()
+    model = joblib.load(MODEL_PATH)
 
-    # Sidebar Info
-    st.sidebar.header("About")
-    st.sidebar.info("This app helps classify disaster-related messages and show their categories.")
+    # Tokenizer function (same as in train_classifier)
+    def tokenize(text):
+        tokens = word_tokenize(text)
+        lemmatizer = WordNetLemmatizer()
+        tokens = [lemmatizer.lemmatize(token).lower().strip() for token in tokens]
+        return tokens
 
-    # Input Message
-    txt = st.text_area("Paste a Disaster-related Message here:")
+    # Load DB if exists
+    if not os.path.exists(DB_PATH):
+        st.error("Database not found! Please run process_data.py to generate DisasterResponse.db.")
+    else:
+        conn = sqlite3.connect(DB_PATH)
+        df = pd.read_sql("SELECT * FROM disaster_messages", conn)
+        conn.close()
 
-    if st.button("Classify 🚀"):
-        if txt:
-            # Dummy Classification (replace with ML model prediction later)
-            st.success("This is a mock classification. In production, connect your ML model here.")
-            st.write(f"Message: {txt}")
-            st.write("Predicted Categories: Flood, Aid Related, Infrastructure Damage")
-        else:
-            st.warning("Please input a message to classify.")
+        # Sidebar Info
+        st.sidebar.header("About")
+        st.sidebar.info("This app helps classify disaster-related messages into multiple emergency-related categories!")
 
-    # Show the database
-    toggle = st.checkbox("Show Dataset 📊")
-    if toggle:
-        st.dataframe(df.head(20))
+        # Input Message
+        txt = st.text_area("Paste a Disaster-related Message here:")
+
+        if st.button("Classify 🚀"):
+            if txt:
+                # Actual model prediction
+                prediction = model.predict([txt])[0]
+                categories = df.columns[4:]  # Skip id, message, original, genre
+                
+                st.success("✅ Classification complete!")
+                st.write(f"**Message:** {txt}")
+                st.write("**Predicted Categories:**")
+                for cat, label in zip(categories, prediction):
+                    if label == 1:
+                        st.markdown(f"- ✅ **{cat}**")
+            else:
+                st.warning("Please input a message to classify.")
+
+        # Show the database
+        toggle = st.checkbox("Show Dataset 📊")
+        if toggle:
+            st.dataframe(df.head(20))
