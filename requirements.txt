@@ -1,7 +1,7 @@
 streamlit
-plotly
 pandas
-geopandas
+numpy
+joblib
+plotly
 scikit-learn
-matplotlib
-nltk
+sqlite3  # For local dev, but Streamlit Cloud will handle DB internally
