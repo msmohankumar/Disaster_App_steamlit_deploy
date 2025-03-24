@@ -1,13 +1,13 @@
 # utils.py
-from nltk.tokenize import word_tokenize
+import re
 from nltk.stem import WordNetLemmatizer
 import nltk
 
-nltk.download('punkt')
-nltk.download('wordnet')
+nltk.download('wordnet')  # WordNet typically works without external files on Streamlit Cloud
 
-def tokenize(text):
-    tokens = word_tokenize(text)
+def simple_tokenize(text):
+    # Simple regex tokenizer: split on non-word characters
+    tokens = re.findall(r'\b\w+\b', text.lower())
     lemmatizer = WordNetLemmatizer()
-    tokens = [lemmatizer.lemmatize(token).lower().strip() for token in tokens]
+    tokens = [lemmatizer.lemmatize(token).strip() for token in tokens]
     return tokens
