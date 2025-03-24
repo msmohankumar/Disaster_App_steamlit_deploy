@@ -1,7 +1,7 @@
-streamlit
 pandas
 numpy
-joblib
-plotly
 scikit-learn
-sqlite3  # For local dev, but Streamlit Cloud will handle DB internally
+nltk
+sqlalchemy
+joblib
+streamlit
